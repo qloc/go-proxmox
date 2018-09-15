@@ -194,11 +194,7 @@ func (proxmox ProxMox) NextVMId() (float64, error) {
 func (proxmox ProxMox) DetermineVMPlacement(cpu int64, cores int64, mem int64, overCommitCPU float64, overCommitMem float64) (Node, error) {
 	var nodeList NodeList
 	var node Node
-	var qemuList QemuList
-	var qemu QemuVM
 	var errNode Node
-	var usedCPUs float64
-	var usedMem float64
 	var lowest float64
 	var choosenNode Node
 
@@ -210,8 +206,8 @@ func (proxmox ProxMox) DetermineVMPlacement(cpu int64, cores int64, mem int64, o
 		return errNode, errors.New("Could not get any nodes.")
 	}
 	for _, node = range nodeList {
-		if node.CPU < 0.75 && qemu.Mem/qemu.MaxMem < lowest {
-			lowest = qemu.Mem / qemu.MaxMem
+		if node.CPU < 0.75 && node.Mem/node.MaxMem < lowest {
+			lowest = node.Mem / node.MaxMem
 			choosenNode = node
 		}
 	}
