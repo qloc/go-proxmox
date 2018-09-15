@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -195,42 +194,39 @@ func (proxmox ProxMox) NextVMId() (float64, error) {
 func (proxmox ProxMox) DetermineVMPlacement(cpu int64, cores int64, mem int64, overCommitCPU float64, overCommitMem float64) (Node, error) {
 	var nodeList NodeList
 	var node Node
-	var qemuList []QemuVM
+	var qemuList QemuList
 	var qemu QemuVM
 	var errNode Node
-	var usedCPUs int64
-	var usedMem int64
+	var usedCPUs float64
+	var usedMem float64
+	var lowest float64
+	var choosenNode Node
 
 	var err error
 
+	lowest = 100000
 	nodeList, err = proxmox.Nodes()
 	if err != nil {
 		return errNode, errors.New("Could not get any nodes.")
 	}
 	for _, node = range nodeList {
-		qemuListSorted, err := node.Qemu()
+		qemuList, err = node.Qemu()
 		if err != nil {
 			return errNode, errors.New("Could not get VMs for node " + node.Node + ".")
 		}
-		//Randomize order of nodes
-		qemuList = make([]QemuVM, len(qemuListSorted))
-		perm := rand.Perm(len(qemuListSorted))
-		i := 0
-		for s := range qemuListSorted {
-			qemuList[perm[i]] = qemuListSorted[s]
-			i++
-		}
 		for _, qemu = range qemuList {
-			usedCPUs = usedCPUs + int64(qemu.CPUs)
-			usedMem = usedMem + int64(qemu.MaxMem)
+			usedCPUs = usedCPUs + qemu.CPUs
+			usedMem = usedMem + qemu.MaxMem
 		}
-		if (cpu*cores < int64(node.MaxCPU*(1+overCommitCPU))-usedCPUs) && (mem < int64(node.MaxMem*(1+overCommitMem))-usedMem) {
-			return node, nil
-			//		} else {
-			//			fmt.Printf("CPU: %v < %v, Memory: %v < %v\n", cpu*cores, int64(node.MaxCPU*(1+overCommitCPU))-usedCPUs, mem, int64(node.MaxMem*(1+overCommitMem))-usedMem)
+		if (((usedCPUs*100)/(node.MaxCPU*100))+((usedMem*100)/(node.MaxMem*100)))/2 < lowest {
+			lowest = (((usedCPUs * 100) / (node.MaxCPU * 100)) + ((usedMem * 100) / (node.MaxMem * 100))) / 2
+			choosenNode = node
 		}
 	}
-	return errNode, errors.New("Not enough free capacity on any of the nodes.")
+	if choosenNode.Node == "" {
+		return errNode, errors.New("No nodes.")
+	}
+	return choosenNode, nil
 }
 
 func (proxmox ProxMox) FindVM(VmId string) (QemuVM, error) {
