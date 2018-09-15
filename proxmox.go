@@ -210,16 +210,8 @@ func (proxmox ProxMox) DetermineVMPlacement(cpu int64, cores int64, mem int64, o
 		return errNode, errors.New("Could not get any nodes.")
 	}
 	for _, node = range nodeList {
-		qemuList, err = node.Qemu()
-		if err != nil {
-			return errNode, errors.New("Could not get VMs for node " + node.Node + ".")
-		}
-		for _, qemu = range qemuList {
-			usedCPUs = usedCPUs + qemu.CPUs
-			usedMem = usedMem + qemu.MaxMem
-		}
-		if (((usedCPUs*100)/(node.MaxCPU*100))+((usedMem*100)/(node.MaxMem*100)))/2 < lowest {
-			lowest = (((usedCPUs * 100) / (node.MaxCPU * 100)) + ((usedMem * 100) / (node.MaxMem * 100))) / 2
+		if node.CPU < 0.75 && qemu.Mem/qemu.MaxMem < lowest {
+			lowest = qemu.Mem / qemu.MaxMem
 			choosenNode = node
 		}
 	}
